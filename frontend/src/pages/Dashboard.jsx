@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../utils/api";
 import { motion, AnimatePresence } from "framer-motion";
+import { playSound } from "../utils/soundEffects";
 import {
   Sparkles,
   Heart,
@@ -816,6 +817,7 @@ const Dashboard = () => {
   };
 
   const toggleStepCompleted = (stepId) => {
+    playSound("click");
     const today = new Date().toDateString();
     let updated;
     if (completedSteps.includes(stepId)) {

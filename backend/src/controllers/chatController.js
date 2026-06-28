@@ -67,9 +67,9 @@ const getChatMessages = async (req, res, next) => {
 // @access  Private
 const sendMessage = async (req, res, next) => {
   try {
-    const { content, stream, provider } = req.body;
-    if (!content || !content.trim()) {
-      return next(new AppError("Message content is required", 400));
+    const { content, stream, provider, image } = req.body;
+    if ((!content || !content.trim()) && !image) {
+      return next(new AppError("Message content or image is required", 400));
     }
 
     const chat = await Chat.findOne({ _id: req.params.id, user: req.user._id });
@@ -77,11 +77,18 @@ const sendMessage = async (req, res, next) => {
       return next(new AppError("Chat not found", 404));
     }
 
+    // Determine the prompt to send to the AI
+    let prompt = content;
+    if (!prompt || !prompt.trim()) {
+      prompt = "Analyze this product photo. Identify the product, explain what it is used for, its key benefits, and give step-by-step instructions on how and when to use it in a routine.";
+    }
+
     // 1. Save user message
     const userMessage = await Message.create({
       chat: chat._id,
       sender: "user",
-      content,
+      content: content || "Product Photo Uploaded",
+      image: image || "",
     });
 
     // 2. Fetch conversation history for context memory
@@ -109,7 +116,7 @@ const sendMessage = async (req, res, next) => {
         res.write(`data: ${JSON.stringify({ type: "chunk", content: chunk })}\n\n`);
       };
 
-      await aiService.generateResponseStream(content, formattedHistory, activeProvider, handleChunk);
+      await aiService.generateResponseStream(prompt, formattedHistory, activeProvider, handleChunk, image);
 
       // Save AI message to database
       const aiMessage = await Message.create({
@@ -131,7 +138,7 @@ const sendMessage = async (req, res, next) => {
       res.end();
     } else {
       // 4. Handle Standard (Non-streaming) Response
-      const aiResponseText = await aiService.generateResponse(content, formattedHistory, activeProvider);
+      const aiResponseText = await aiService.generateResponse(prompt, formattedHistory, activeProvider, image);
 
       const aiMessage = await Message.create({
         chat: chat._id,

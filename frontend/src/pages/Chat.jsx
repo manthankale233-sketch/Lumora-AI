@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { playSound } from "../utils/soundEffects";
 import {
   MessageSquare,
   Plus,
@@ -16,7 +17,8 @@ import {
   MicOff,
   Volume2,
   Menu,
-  Copy
+  Copy,
+  Camera
 } from "lucide-react";
 
 const Chat = () => {
@@ -44,6 +46,19 @@ const Chat = () => {
   const [editTitleInput, setEditTitleInput] = useState("");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSelectedImage(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
@@ -272,6 +287,7 @@ const Chat = () => {
 
     let activeId = currentChatId;
     setSending(true);
+    playSound("sent");
 
     try {
       // 1. If there's no active chat, create one first!
@@ -286,10 +302,12 @@ const Chat = () => {
       const tempUserMessage = {
         _id: `temp-${Date.now()}`,
         sender: "user",
-        content: textToSend,
+        content: textToSend || "Product Photo Uploaded",
+        image: selectedImage || "",
         createdAt: new Date(),
       };
       setMessages((prev) => [...prev, tempUserMessage]);
+      setSelectedImage(null);
 
       if (stream) {
         setStreamingText(" ");
@@ -300,7 +318,7 @@ const Chat = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ content: textToSend, stream: true, provider }),
+          body: JSON.stringify({ content: textToSend, stream: true, provider, image: tempUserMessage.image }),
         });
 
         if (!response.ok) {
@@ -333,6 +351,7 @@ const Chat = () => {
                     data.message,
                   ]);
                   setStreamingText("");
+                  playSound("received");
                 } else if (data.type === "error") {
                   alert(`AI Error: ${data.message}`);
                 }
@@ -347,12 +366,14 @@ const Chat = () => {
           content: textToSend,
           stream: false,
           provider,
+          image: tempUserMessage.image,
         });
         setMessages((prev) => [
           ...prev.filter((m) => !m._id.startsWith("temp-")),
           res.data.userMessage,
           res.data.aiMessage,
         ]);
+        playSound("received");
       }
     } catch (err) {
       console.error("Send message error", err);
@@ -631,6 +652,14 @@ const Chat = () => {
                         : "glass text-white border border-white/5"
                     }`}
                   >
+                    {msg.image && (
+                      <img
+                        src={msg.image}
+                        alt="Product upload"
+                        className="max-w-xs max-h-48 rounded-xl object-cover mb-3 border border-white/10 shadow-md cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => window.open(msg.image, "_blank")}
+                      />
+                    )}
                     {renderMessageContent(msg.content)}
 
                     {msg.sender === "ai" && (
@@ -689,7 +718,45 @@ const Chat = () => {
         {/* Floating Input Area */}
         <div className="absolute bottom-6 left-0 right-0 px-6 z-10 pointer-events-none">
           <div className="max-w-3xl mx-auto w-full pointer-events-auto">
+            {/* Image Preview Thumbnail */}
+            {selectedImage && (
+              <div className="mb-3 bg-dark-deep/85 backdrop-blur-lg border border-dark-border rounded-2xl p-2.5 flex items-center space-x-3 shadow-2xl w-fit">
+                <img
+                  src={selectedImage}
+                  alt="Preview"
+                  className="w-12 h-12 rounded-xl object-cover border border-white/10"
+                />
+                <div className="pr-4">
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wider block">Product Photo</span>
+                  <span className="text-[9px] text-dark-muted font-medium block">Annu will analyze this photo 📸</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedImage(null)}
+                  className="p-1.5 bg-white/5 hover:bg-white/10 text-red-400 hover:text-red-300 rounded-lg transition-colors cursor-pointer"
+                  title="Remove photo"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleSendMessage} className="relative flex items-center bg-dark-deep/85 backdrop-blur-lg border border-dark-border rounded-full p-2.5 pl-6 pr-2.5 shadow-2xl focus-within:border-brand-violet transition-all duration-300 gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageChange}
+                accept="image/*"
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-3.5 bg-white/5 border border-white/5 text-dark-muted hover:text-white rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer"
+                title="Upload product photo"
+              >
+                <Camera size={16} />
+              </button>
               <input
                 type="text"
                 value={input}
@@ -712,7 +779,7 @@ const Chat = () => {
               </button>
               <button
                 type="submit"
-                disabled={sending || !input.trim()}
+                disabled={sending || (!input.trim() && !selectedImage)}
                 className="bg-brand-violet hover:bg-brand-purple text-white p-3.5 rounded-full transition-all duration-300 disabled:opacity-50"
               >
                 <Send size={16} />

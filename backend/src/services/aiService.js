@@ -4,11 +4,11 @@ const OpenAI = require("openai");
 let genAI;
 let openai;
 
-if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.startsWith("AIzaSy")) {
+if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()) {
   genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 }
 
-if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith("sk-")) {
+if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim()) {
   openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
@@ -275,7 +275,7 @@ const formatGeminiHistory = (history) => {
   ];
 };
 
-const formatOpenAIHistory = (prompt, history) => {
+const formatOpenAIHistory = (prompt, history, base64Image = null) => {
   const messages = [{ role: "system", content: ANNU_SYSTEM_PROMPT }];
   history.slice(0, -1).forEach((msg) => {
     messages.push({
@@ -283,28 +283,60 @@ const formatOpenAIHistory = (prompt, history) => {
       content: msg.content,
     });
   });
-  messages.push({ role: "user", content: prompt });
+  
+  if (base64Image) {
+    messages.push({
+      role: "user",
+      content: [
+        { type: "text", text: prompt },
+        {
+          type: "image_url",
+          image_url: {
+            url: base64Image,
+          },
+        },
+      ],
+    });
+  } else {
+    messages.push({ role: "user", content: prompt });
+  }
   return messages;
 };
 
-const generateResponse = async (prompt, history = [], provider = "gemini") => {
+const generateResponse = async (prompt, history = [], provider = "gemini", base64Image = null) => {
   const activeProvider = provider.toLowerCase();
 
   try {
     if (activeProvider === "openai" && openai) {
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
-        messages: formatOpenAIHistory(prompt, history),
+        messages: formatOpenAIHistory(prompt, history, base64Image),
       });
       return response.choices[0].message.content;
     }
 
     if (activeProvider === "gemini" && genAI) {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const chat = model.startChat({ history: formatGeminiHistory(history) });
-      const result = await chat.sendMessage(prompt);
-      const response = await result.response;
-      return response.text();
+      if (base64Image) {
+        const imagePart = {
+          inlineData: {
+            data: base64Image.split(",")[1] || base64Image,
+            mimeType: base64Image.split(";")[0].split(":")[1] || "image/jpeg"
+          }
+        };
+        const contents = [
+          ...formatGeminiHistory(history),
+          { role: "user", parts: [{ text: prompt }, imagePart.inlineData] }
+        ];
+        const result = await model.generateContent({ contents });
+        const response = await result.response;
+        return response.text();
+      } else {
+        const chat = model.startChat({ history: formatGeminiHistory(history) });
+        const result = await chat.sendMessage(prompt);
+        const response = await result.response;
+        return response.text();
+      }
     }
   } catch (err) {
     console.error(`⚠️ AI API Call failed (${activeProvider}). Falling back to local database.`, err);
@@ -313,14 +345,14 @@ const generateResponse = async (prompt, history = [], provider = "gemini") => {
   return getLocalResponseText(prompt);
 };
 
-const generateResponseStream = async (prompt, history = [], provider = "gemini", onChunk) => {
+const generateResponseStream = async (prompt, history = [], provider = "gemini", onChunk, base64Image = null) => {
   const activeProvider = provider.toLowerCase();
 
   try {
     if (activeProvider === "openai" && openai) {
       const stream = await openai.chat.completions.create({
         model: "gpt-4o-mini",
-        messages: formatOpenAIHistory(prompt, history),
+        messages: formatOpenAIHistory(prompt, history, base64Image),
         stream: true,
       });
 
@@ -335,16 +367,38 @@ const generateResponseStream = async (prompt, history = [], provider = "gemini",
 
     if (activeProvider === "gemini" && genAI) {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const chat = model.startChat({ history: formatGeminiHistory(history) });
-      const resultStream = await chat.sendMessageStream(prompt);
+      if (base64Image) {
+        const imagePart = {
+          inlineData: {
+            data: base64Image.split(",")[1] || base64Image,
+            mimeType: base64Image.split(";")[0].split(":")[1] || "image/jpeg"
+          }
+        };
+        const contents = [
+          ...formatGeminiHistory(history),
+          { role: "user", parts: [{ text: prompt }, imagePart.inlineData] }
+        ];
+        const resultStream = await model.generateContentStream({ contents });
 
-      for await (const chunk of resultStream.stream) {
-        const chunkText = chunk.text();
-        if (chunkText) {
-          onChunk(chunkText);
+        for await (const chunk of resultStream.stream) {
+          const chunkText = chunk.text();
+          if (chunkText) {
+            onChunk(chunkText);
+          }
         }
+        return;
+      } else {
+        const chat = model.startChat({ history: formatGeminiHistory(history) });
+        const resultStream = await chat.sendMessageStream(prompt);
+
+        for await (const chunk of resultStream.stream) {
+          const chunkText = chunk.text();
+          if (chunkText) {
+            onChunk(chunkText);
+          }
+        }
+        return;
       }
-      return;
     }
   } catch (err) {
     console.error(`⚠️ AI Streaming failed (${activeProvider}). Falling back to local stream.`, err);

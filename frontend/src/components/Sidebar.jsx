@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { playSound } from "../utils/soundEffects";
 import {
   LayoutDashboard,
   MessageSquare,
@@ -25,6 +26,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   const [currentTheme, setCurrentTheme] = useState(localStorage.getItem("theme") || "amethyst");
 
   const changeTheme = (themeName) => {
+    playSound(`theme-${themeName}`);
     setCurrentTheme(themeName);
     localStorage.setItem("theme", themeName);
     if (themeName === "amethyst") {
@@ -127,7 +129,10 @@ const Sidebar = ({ isOpen, onClose }) => {
             <NavLink
               key={item.name}
               to={item.path}
-              onClick={onClose}
+              onClick={() => {
+                playSound("click");
+                onClose();
+              }}
               className={({ isActive }) =>
                 `flex items-center space-x-4 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all relative group ${
                   isActive

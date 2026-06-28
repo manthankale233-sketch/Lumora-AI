@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import api from "../utils/api";
 import { motion, AnimatePresence } from "framer-motion";
+import { playSound } from "../utils/soundEffects";
 import {
   ShieldCheck,
   Columns,
@@ -172,6 +173,7 @@ const Utilities = () => {
   const handleCaptureAndScan = async () => {
     if (!videoRef.current || !cameraStream) return;
 
+    playSound("shutter");
     const canvas = document.createElement("canvas");
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
@@ -188,6 +190,7 @@ const Utilities = () => {
         image: base64Image
       });
       setIngredientsResult(res.data.analysis);
+      playSound("success");
     } catch (err) {
       console.error("Image scan failed", err);
       setIngredientsResult("Failed to scan ingredients from image. Please try pasting the text instead.");
@@ -200,6 +203,7 @@ const Utilities = () => {
     e.preventDefault();
     if (!ingredientsInput.trim() || checking) return;
 
+    playSound("click");
     setChecking(true);
     setIngredientsResult("");
     try {
@@ -207,6 +211,7 @@ const Utilities = () => {
         ingredients: ingredientsInput,
       });
       setIngredientsResult(res.data.analysis);
+      playSound("success");
     } catch (err) {
       console.error("Ingredient check failed", err);
       setIngredientsResult("Failed to analyze ingredients. Please try again.");
@@ -219,6 +224,7 @@ const Utilities = () => {
     e.preventDefault();
     if (!productA.trim() || !productB.trim() || comparing) return;
 
+    playSound("click");
     setComparing(true);
     setComparisonResult("");
     try {
@@ -227,6 +233,7 @@ const Utilities = () => {
         productB,
       });
       setComparisonResult(res.data.comparison);
+      playSound("success");
     } catch (err) {
       console.error("Product comparison failed", err);
       setComparisonResult("Failed to compare products. Please try again.");
@@ -237,62 +244,136 @@ const Utilities = () => {
 
   const renderMarkdown = (text) => {
     if (!text) return null;
-    return text.split("\n").map((line, i) => {
-      if (line.startsWith("### ")) {
-        return <h4 key={i} className="text-sm font-bold text-white mt-4 mb-2">{line.replace("### ", "")}</h4>;
-      }
-      if (line.startsWith("## ")) {
-        return <h3 key={i} className="text-base font-extrabold text-brand-violet mt-6 mb-3">{line.replace("## ", "")}</h3>;
-      }
-      if (line.startsWith("- ")) {
-        const itemText = line.replace("- ", "");
-        if (itemText.includes("[Buy on Amazon]")) {
-          const parts = itemText.split("|");
-          return (
-            <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-dark-deep/40 border border-dark-border/40 mb-3 text-xs font-semibold gap-2">
-              <span className="text-white">{parts[0].split("[")[0].trim()}</span>
-              <div className="flex space-x-2 flex-shrink-0">
-                <a
-                  href={parts[0].match(/\((.*?)\)/)?.[1]}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center space-x-1 text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg hover:bg-amber-500/20 transition-all"
-                >
-                  <span>Amazon</span>
-                  <ExternalLink size={10} />
-                </a>
-                {parts[1] && (
-                  <a
-                    href={parts[1].match(/\((.*?)\)/)?.[1]}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center space-x-1 text-brand-pink bg-brand-pink/10 border border-brand-pink/20 px-3 py-1.5 rounded-lg hover:bg-brand-pink/20 transition-all"
-                  >
-                    <span>Nykaa</span>
-                    <ExternalLink size={10} />
-                  </a>
-                )}
-              </div>
+
+    const lines = text.split("\n");
+    const elements = [];
+    let currentTable = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+
+      // Detect table rows
+      if (line.startsWith("|")) {
+        const cells = line.split("|")
+          .map(cell => cell.trim())
+          .filter((cell, idx, arr) => idx > 0 && idx < arr.length - 1);
+
+        // Skip table separator row (e.g., |:---|:---|)
+        const isSeparator = cells.every(cell => 
+          cell.startsWith(":") || 
+          cell.endsWith(":") || 
+          cell.split("").every(char => char === "-")
+        );
+
+        if (isSeparator) {
+          continue;
+        }
+
+        if (!currentTable) {
+          currentTable = { headers: cells, rows: [] };
+        } else {
+          currentTable.rows.push(cells);
+        }
+      } else {
+        // If we have an accumulated table, render it before rendering the next element
+        if (currentTable) {
+          const tableKey = `table-${i}`;
+          elements.push(
+            <div key={tableKey} className="overflow-x-auto my-4 rounded-xl border border-white/5 bg-dark-deep/40">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-white/5 bg-white/5 text-white font-bold">
+                    {currentTable.headers.map((h, idx) => (
+                      <th key={idx} className="p-3">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentTable.rows.map((row, rIdx) => (
+                    <tr key={rIdx} className="border-b border-white/5 hover:bg-white/5 transition-colors text-dark-muted font-semibold">
+                      {row.map((cell, cIdx) => (
+                        <td key={cIdx} className="p-3">{cell}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           );
+          currentTable = null;
         }
-        return <li key={i} className="text-xs text-dark-muted ml-4 list-disc mb-1.5 leading-relaxed font-medium">{itemText}</li>;
-      }
-      if (line.startsWith("|")) {
-        const cells = line.split("|").map(c => c.trim()).filter(c => c !== "");
-        if (cells.every(c => c.startsWith("-"))) return null;
-        return (
-          <div key={i} className="grid grid-cols-3 gap-2 border-b border-dark-border/50 py-3.5 text-xs font-medium text-dark-muted">
-            {cells.map((cell, cellIdx) => (
-              <div key={cellIdx} className={cellIdx === 0 ? "font-bold text-white" : ""}>
-                {cell}
+
+        if (line.startsWith("### ")) {
+          elements.push(<h4 key={i} className="text-sm font-bold text-white mt-4 mb-2">{line.replace("### ", "")}</h4>);
+        } else if (line.startsWith("## ")) {
+          elements.push(<h3 key={i} className="text-base font-extrabold text-brand-violet mt-6 mb-3">{line.replace("## ", "")}</h3>);
+        } else if (line.startsWith("- ")) {
+          const itemText = line.replace("- ", "");
+          if (itemText.includes("[Buy on Amazon]")) {
+            const parts = itemText.split("|");
+            elements.push(
+              <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-dark-deep/40 border border-dark-border/40 mb-3 text-xs font-semibold gap-2">
+                <span className="text-white">{parts[0].split("[")[0].trim()}</span>
+                <div className="flex space-x-2 flex-shrink-0">
+                  <a
+                    href={parts[0].match(/\((.*?)\)/)?.[1]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-1 text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg hover:bg-amber-500/20 transition-all"
+                  >
+                    <span>Amazon</span>
+                    <ExternalLink size={10} />
+                  </a>
+                  {parts[1] && (
+                    <a
+                      href={parts[1].match(/\((.*?)\)/)?.[1]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center space-x-1 text-brand-pink bg-brand-pink/10 border border-brand-pink/20 px-3 py-1.5 rounded-lg hover:bg-brand-pink/20 transition-all"
+                    >
+                      <span>Nykaa</span>
+                      <ExternalLink size={10} />
+                    </a>
+                  )}
+                </div>
               </div>
-            ))}
-          </div>
-        );
+            );
+          } else {
+            elements.push(<li key={i} className="text-xs text-dark-muted leading-relaxed ml-4 mb-1 list-disc font-medium">{itemText}</li>);
+          }
+        } else if (line) {
+          elements.push(<p key={i} className="text-xs text-dark-muted leading-relaxed mb-2 font-medium">{line}</p>);
+        }
       }
-      return <p key={i} className="text-xs text-dark-muted leading-relaxed mb-2 font-medium">{line}</p>;
-    });
+    }
+
+    // Render any remaining table at the end
+    if (currentTable) {
+      elements.push(
+        <div key="table-end" className="overflow-x-auto my-4 rounded-xl border border-white/5 bg-dark-deep/40">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-white/5 bg-white/5 text-white font-bold">
+                {currentTable.headers.map((h, idx) => (
+                  <th key={idx} className="p-3">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {currentTable.rows.map((row, rIdx) => (
+                <tr key={rIdx} className="border-b border-white/5 hover:bg-white/5 transition-colors text-dark-muted font-semibold">
+                  {row.map((cell, cIdx) => (
+                    <td key={cIdx} className="p-3">{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    return elements;
   };
 
   // Filter dictionary items by query
@@ -314,7 +395,10 @@ const Utilities = () => {
       {/* Tabs */}
       <div className="flex bg-dark-deep border border-dark-border rounded-2xl p-1.5 max-w-md space-x-2">
         <button
-          onClick={() => setActiveTab("ingredients")}
+          onClick={() => {
+            playSound("click");
+            setActiveTab("ingredients");
+          }}
           className={`flex items-center space-x-2 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-all flex-1 justify-center ${
             activeTab === "ingredients"
               ? "bg-brand-violet text-white glow-violet"
@@ -325,7 +409,10 @@ const Utilities = () => {
           <span>Formulation Checker</span>
         </button>
         <button
-          onClick={() => setActiveTab("compare")}
+          onClick={() => {
+            playSound("click");
+            setActiveTab("compare");
+          }}
           className={`flex items-center space-x-2 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-all flex-1 justify-center ${
             activeTab === "compare"
               ? "bg-brand-pink text-white glow-pink"
@@ -336,7 +423,10 @@ const Utilities = () => {
           <span>Product Compare</span>
         </button>
         <button
-          onClick={() => setActiveTab("dictionary")}
+          onClick={() => {
+            playSound("click");
+            setActiveTab("dictionary");
+          }}
           className={`flex items-center space-x-2 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-all flex-1 justify-center ${
             activeTab === "dictionary"
               ? "bg-brand-blue text-white"

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../utils/api";
 import { motion, AnimatePresence } from "framer-motion";
+import { playSound } from "../utils/soundEffects";
 import {
   Sparkles,
   Heart,
@@ -120,6 +121,7 @@ const Consultation = () => {
   };
 
   const handleOptionSelect = (key, value, isMulti) => {
+    playSound("click");
     if (isMulti) {
       const current = answers[key] || [];
       if (current.includes(value)) {
@@ -162,6 +164,7 @@ const Consultation = () => {
       setActiveType(null);
       setAnswers({});
       setStep(0);
+      playSound("success");
     } catch (err) {
       console.error("Submit consultation failed", err);
       alert("Consultation failed. Please try again.");
