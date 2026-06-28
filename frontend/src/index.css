@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+:root {
+  --color-brand-violet: #a855f7;
+  --color-brand-purple: #7c3aed;
+  --color-brand-pink: #f472b6;
+  --color-brand-blue: #3b82f6;
+  --color-brand-emerald: #10b981;
+  --color-brand-amber: #f59e0b;
+  
+  --color-dark-deep: #03010a;
+  --color-dark-card: rgba(12, 8, 30, 0.65);
+  --color-dark-border: rgba(192, 132, 252, 0.12);
+  --color-dark-hover: rgba(192, 132, 252, 0.18);
+  --color-dark-text: #ffffff;
+  --color-dark-muted: #cbd5e1;
+}
+
+/* Theme: Cyber Emerald */
+[data-theme='emerald'] {
+  --color-brand-violet: #10b981;
+  --color-brand-purple: #059669;
+  --color-brand-pink: #34d399;
+  --color-brand-blue: #6ee7b7;
+  
+  --color-dark-deep: #020604;
+  --color-dark-card: rgba(4, 18, 12, 0.65);
+  --color-dark-border: rgba(16, 185, 129, 0.15);
+  --color-dark-hover: rgba(16, 185, 129, 0.22);
+}
+
+/* Theme: Midnight Gold */
+[data-theme='gold'] {
+  --color-brand-violet: #fbbf24;
+  --color-brand-purple: #d97706;
+  --color-brand-pink: #f59e0b;
+  --color-brand-blue: #6366f1;
+  
+  --color-dark-deep: #050402;
+  --color-dark-card: rgba(20, 16, 8, 0.65);
+  --color-dark-border: rgba(251, 191, 36, 0.15);
+  --color-dark-hover: rgba(251, 191, 36, 0.22);
+}
+
+/* Theme: Sunset Rose */
+[data-theme='rose'] {
+  --color-brand-violet: #ec4899;
+  --color-brand-purple: #db2777;
+  --color-brand-pink: #f43f5e;
+  --color-brand-blue: #f97316;
+  
+  --color-dark-deep: #080205;
+  --color-dark-card: rgba(22, 8, 16, 0.65);
+  --color-dark-border: rgba(236, 72, 153, 0.15);
+  --color-dark-hover: rgba(236, 72, 153, 0.22);
+}
+
+@theme {
+  --color-brand-violet: var(--color-brand-violet);
+  --color-brand-purple: var(--color-brand-purple);
+  --color-brand-pink: var(--color-brand-pink);
+  --color-brand-blue: var(--color-brand-blue);
+  --color-brand-emerald: var(--color-brand-emerald);
+  --color-brand-amber: var(--color-brand-amber);
+  
+  --color-dark-deep: var(--color-dark-deep);
+  --color-dark-card: var(--color-dark-card);
+  --color-dark-border: var(--color-dark-border);
+  --color-dark-hover: var(--color-dark-hover);
+  --color-dark-text: var(--color-dark-text);
+  --color-dark-muted: var(--color-dark-muted);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-dark-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-dark-border);
+  border-radius: 99px;
+}
+
+/* Global Reset */
+body {
+  margin: 0;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  background-color: var(--color-dark-deep);
+  color: var(--color-dark-text);
+  overflow-x: hidden;
+  font-size: 15px;
+  transition: background-color 0.4s ease;
+}
+
+/* Glassmorphism Styles */
+.glass {
+  background: var(--color-dark-card);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid var(--color-dark-border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  transition: background 0.4s ease, border-color 0.4s ease;
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Glow Utilities */
+.glow-violet {
+  box-shadow: 0 0 25px 0 rgba(168, 85, 247, 0.3);
+}
+
+/* Cyber Grid Background with Radial Mask */
+.bg-grid {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(168, 85, 247, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(168, 85, 247, 0.03) 1px, transparent 1px);
+  mask-image: radial-gradient(circle at 50% 50%, black 30%, transparent 85%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 30%, transparent 85%);
+}
+
+/* Breathing Aurora Orbs */
+@keyframes float-orb-1 {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(40px, -60px) scale(1.15); }
+  66% { transform: translate(-30px, 30px) scale(0.9); }
+}
+
+@keyframes float-orb-2 {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  50% { transform: translate(-50px, 50px) scale(1.2); }
+}
+
+.aurora-violet {
+  background: var(--color-brand-violet);
+  width: 550px;
+  height: 550px;
+  animation: float-orb-1 25s infinite ease-in-out;
+  transition: background 0.4s ease;
+}
+
+.aurora-emerald {
+  background: var(--color-brand-pink);
+  width: 450px;
+  height: 450px;
+  animation: float-orb-2 30s infinite ease-in-out;
+  transition: background 0.4s ease;
+}
+
+/* Custom Card Flip Animations for Credit Card */
+.perspective-1000 {
+  perspective: 1000px;
+}
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+}
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* High-priority Sidebar Text overrides */
+.sidebar-text-active {
+  color: #ffffff !important;
+}
+.sidebar-text-inactive {
+  color: #94a3b8 !important;
+}
+.sidebar-icon-active {
+  color: var(--color-brand-violet) !important;
+}
+.sidebar-icon-inactive {
+  color: #64748b !important;
+}
